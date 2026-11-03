@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-plugin-file-annotate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Annotatable file editor for the DSH right sidebar: lazy file tree, cross-file annotations, Markdown preview, and composer-draft handoff.",
   "repository": {
