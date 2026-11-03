@@ -45,7 +45,7 @@ window.__ModuleLoader__.load({
       'review.clearHint': '清除本文件的全部批注',
       'review.confirmClear': '清除本文件的全部批注？此操作不可撤销。',
       'review.stale': '原文已改动，无法定位到原批注',
-      'review.staged': '已加入对话输入框',
+      'review.staged': '已加入对话输入框，批注已清除',
       'review.clearAll': '全部清除',
       'review.clearAllHint': '清除当前会话所有文件的批注',
       'review.confirmClearAll': '清除当前会话所有文件的批注？此操作不可撤销。',
@@ -135,7 +135,7 @@ window.__ModuleLoader__.load({
       'review.clearHint': 'Clear every annotation in this file',
       'review.confirmClear': 'Clear every annotation in this file? This cannot be undone.',
       'review.stale': 'The source changed; this annotation cannot be located',
-      'review.staged': 'Added to the composer draft',
+      'review.staged': 'Added to the composer draft; annotations cleared',
       'review.clearAll': 'Clear all',
       'review.clearAllHint': 'Clear annotations in every file of this session',
       'review.confirmClearAll': 'Clear annotations in every file of this session? This cannot be undone.',
@@ -217,7 +217,7 @@ window.__ModuleLoader__.load({
 
     /** Read-only diagnostics exposed through the Cordis inspect channel. */
     const diagnostics = {
-      uiVersion: 'p4-final-1',
+      uiVersion: 'p4-fix-1',
       treeType: false,
       treeBody: false,
       treeTitle: false,
@@ -1870,7 +1870,7 @@ window.__ModuleLoader__.load({
     }
 
     function EditorBody(props) {
-      const { useTabInfo, sessionId, useSessions, t } = props
+      const { useTabInfo, useInput, inputActions, sessionId, useSessions, t } = props
       const info = useTabInfo()
       const tab = info === undefined || info === null ? undefined : info.tab
       const address =
@@ -1919,6 +1919,9 @@ window.__ModuleLoader__.load({
         return typeof cursor === 'number' ? cursor : 0
       })
       const bridge = useComposerBridge(sessionId)
+      const composerDraft = useInput((state) =>
+        state === undefined || state === null || typeof state.draft !== 'string' ? '' : state.draft,
+      )
       const sessionAnnotations = useSessionAnnotations(sessionId)
 
       const taRef = React.useRef(null)
@@ -2393,18 +2396,36 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const appendComposer = (text) => {
+        if (
+          inputActions !== undefined &&
+          inputActions !== null &&
+          typeof inputActions.setDraft === 'function'
+        ) {
+          try {
+            const base = composerDraft.trim() === '' ? '' : composerDraft.replace(/\s+$/, '')
+            inputActions.setDraft(base === '' ? text : `${base}\n\n${text}`)
+            return true
+          } catch {
+            // Fall through to the session bridge when the composer is being replaced.
+          }
+        }
+        return bridge === undefined ? false : bridge.append(text)
+      }
+
       const submitReview = () => {
         const deleted = loadDeletedAnnotations(sessionId)
         const live = annotations.filter((annotation) => !deleted.has(`${address}::${annotation.id}`))
         if (live.length === 0) return
-        if (bridge === undefined) {
+        if (!appendComposer(buildMessage(address, live, t))) {
           setStatus({ kind: 'error', text: t('review.noComposer') })
           return
         }
-        if (!bridge.append(buildMessage(address, live, t))) {
-          setStatus({ kind: 'error', text: t('review.noComposer') })
-          return
+        for (const annotation of live) {
+          markAnnotationDeleted(sessionId, address, annotation.id)
         }
+        setAnnotations([])
+        setGlobalIndex(0)
         setStatus({ kind: 'info', text: t('review.staged') })
       }
 
