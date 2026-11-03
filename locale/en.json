@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "File Annotator",
+    "description": "Open workspace files in an annotatable editor with a lazy file tree and cross-file annotation navigation; select text to add a scoped request to the composer draft."
+  }
+}

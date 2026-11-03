@@ -1,0 +1,4 @@
+- insert:
+    - id: file-annotate
+      name: '@local/dsh-plugin-file-annotate'
+      config: {}
