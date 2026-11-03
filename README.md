@@ -122,8 +122,6 @@ dsh plugin --profile <profile> add <Release tarball 的 https 地址>
 dsh plugin --profile <profile> add /absolute/path/to/dsh-plugin-file-annotate
 ```
 
-发布时请使用 GitHub 地址或 Release tarball；本地目录安装是 link，不是复制安装。
-
 ## License
 
 MIT. See the LICENSE file in the repository.
