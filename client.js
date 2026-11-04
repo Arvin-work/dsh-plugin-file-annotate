@@ -217,7 +217,7 @@ window.__ModuleLoader__.load({
 
     /** Read-only diagnostics exposed through the Cordis inspect channel. */
     const diagnostics = {
-      uiVersion: 'p4-fix-2',
+      uiVersion: 'p4-fix-3',
       treeType: false,
       treeBody: false,
       treeTitle: false,
@@ -2430,9 +2430,13 @@ window.__ModuleLoader__.load({
           setStatus({ kind: 'error', text: t('review.noComposer') })
           return
         }
-        for (const item of globalAnnotations) {
-          markAnnotationDeleted(sessionId, item.address, item.annotation.id)
-        }
+        markAnnotationsDeleted(
+          sessionId,
+          globalAnnotations.map((item) => ({
+            address: item.address,
+            id: item.annotation.id,
+          })),
+        )
         setAnnotations([])
         setGlobalIndex(0)
         notifyAnnotationsCleared()
@@ -2441,9 +2445,10 @@ window.__ModuleLoader__.load({
 
       const clearReview = () => {
         if (typeof window.confirm === 'function' && !window.confirm(t('review.confirmClear'))) return
-        for (const annotation of annotations) {
-          markAnnotationDeleted(sessionId, address, annotation.id)
-        }
+        markAnnotationsDeleted(
+          sessionId,
+          annotations.map((annotation) => ({ address, id: annotation.id })),
+        )
         setAnnotations([])
         setStatus(null)
       }
@@ -2452,12 +2457,13 @@ window.__ModuleLoader__.load({
         if (typeof window.confirm === 'function' && !window.confirm(t('review.confirmClearAll'))) return
         const items = readSessionAnnotations(sessionId)
         const addresses = new Set(items.map((item) => item.address))
-        for (const item of items) {
-          markAnnotationDeleted(sessionId, item.address, item.annotation.id)
-        }
-        for (const annotation of annotations) {
-          markAnnotationDeleted(sessionId, address, annotation.id)
-        }
+        markAnnotationsDeleted(sessionId, [
+          ...items.map((item) => ({
+            address: item.address,
+            id: item.annotation.id,
+          })),
+          ...annotations.map((annotation) => ({ address, id: annotation.id })),
+        ])
         if (annotations.length > 0) addresses.add(address)
         for (const target of addresses) {
           try {
@@ -2468,7 +2474,6 @@ window.__ModuleLoader__.load({
         }
         setAnnotations([])
         setGlobalIndex(0)
-        notifyAnnotationsChanged()
         notifyAnnotationsCleared()
         setStatus({ kind: 'info', text: t('review.clearedAll') })
       }
@@ -3751,10 +3756,27 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function markAnnotationDeleted(sessionId, address, id) {
+    function markAnnotationsDeleted(sessionId, entries) {
       if (typeof sessionId !== 'string' || sessionId === '') return
+      if (!Array.isArray(entries) || entries.length === 0) return
       const deleted = loadDeletedAnnotations(sessionId)
-      deleted.add(`${address}::${id}`)
+      let changed = false
+      for (const entry of entries) {
+        if (
+          entry === undefined ||
+          entry === null ||
+          typeof entry.address !== 'string' ||
+          typeof entry.id !== 'string'
+        ) {
+          continue
+        }
+        const key = `${entry.address}::${entry.id}`
+        if (!deleted.has(key)) {
+          deleted.add(key)
+          changed = true
+        }
+      }
+      if (!changed) return
       saveDeletedAnnotations(sessionId, deleted)
       notifyAnnotationsChanged()
     }
