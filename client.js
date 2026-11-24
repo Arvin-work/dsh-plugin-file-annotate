@@ -17,6 +17,13 @@ window.__ModuleLoader__.load({
     const MAX_PAGES = 20
     const MAX_SAVE_CHARS = 200000
     const MAX_QUOTE_CHARS = 4000
+    /** Ordered input dock above the Composer (todo = 0, queue = 20). */
+    const DOCK_ID = 'file-annotate-annotations'
+    const DOCK_ORDER = 15
+    /** Same-origin Host transport that hands annotations to the next agent step. */
+    const PENDING_ROUTE = '/file-annotate/pending'
+    const PENDING_STATUS_ROUTE = '/file-annotate/pending/status'
+    const MAX_PENDING_CHARS = 100000
 
     const PATTERNS = [
       '*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.jsx', '*.mjs', '*.cjs',
@@ -39,22 +46,37 @@ window.__ModuleLoader__.load({
       'action.annotate': '批注选中',
       'action.preview': '在预览中打开',
       'action.mdPreview': '预览',
-      'review.submit': '提交',
-      'review.submitHint': '把本文件批注加入对话输入框，不会直接发送',
-      'review.clear': '清除',
-      'review.clearHint': '清除本文件的全部批注',
-      'review.confirmClear': '清除本文件的全部批注？此操作不可撤销。',
       'review.stale': '原文已改动，无法定位到原批注',
-      'review.staged': '已加入对话输入框，全部批注已清除',
-      'review.clearAll': '全部清除',
-      'review.clearAllHint': '清除当前会话所有文件的批注',
-      'review.confirmClearAll': '清除当前会话所有文件的批注？此操作不可撤销。',
-      'review.clearedAll': '已清除全部批注',
       'review.label': '批注导航',
       'review.staleBadge': '原文已改',
       'review.prev': '上一条批注',
       'review.next': '下一条批注',
-      'review.noComposer': '当前会话没有可用的输入框',
+      'dock.title': '文件批注',
+      'dock.label': '文件批注',
+      'dock.count': '{n} 条批注',
+      'dock.openHint': '跳到 {file} 的批注位置',
+      'dock.removeHint': '移除“{file}”的这条批注',
+      'dock.removed': '已移除“{file}”的批注',
+      'dock.undo': '撤销',
+      'dock.undoHint': '恢复刚刚移除的批注',
+      'dock.restored': '已恢复批注',
+      'dock.clearAll': '全部清除',
+      'dock.confirmClearAll': '确认清除全部 {n} 条批注？',
+      'dock.confirm': '确认清除',
+      'dock.cancel': '取消',
+      'dock.cleared': '已清除全部批注',
+      'dock.send': '发送给智能体',
+      'dock.sendHint': '把批注随下一条消息发送给智能体，不会写入输入框',
+      'dock.sending': '正在发送批注…',
+      'dock.waiting': '批注已提交，等待智能体接收…',
+      'dock.sent': '批注已发送给智能体',
+      'dock.deliveryUnknown': '无法确认批注是否送达，已保留批注',
+      'dock.checkStatus': '检查状态',
+      'dock.noComposer': '当前会话没有可用的输入框，暂时无法发送批注',
+      'dock.sendPrompt': '请按上面的文件批注进行修改。',
+      'dock.tooLarge': '批注内容过大，无法发送；请减少批注数量',
+      'dock.error': '发送批注失败：{error}',
+      'dock.staleHint': '原文已改动，将打开文件但不定位到原行',
       'mode.label': '模式',
       'mode.annotate': '批注',
       'mode.edit': '编辑',
@@ -73,6 +95,7 @@ window.__ModuleLoader__.load({
       'status.truncated': '文件较大，只载入前 {n} 页',
       'status.loading': '正在读取文件…',
       'status.saving': '正在保存…',
+      'status.plain': '纯文本模式',
       'status.saveOk': '已保存到磁盘',
       'panel.empty': '选中文本后点击“批注选中”，写下你希望怎么改。',
       'composer.suggestionPlaceholder': '可选：写下你期望替换成的内容，智能体会优先照此修改。',
@@ -129,22 +152,37 @@ window.__ModuleLoader__.load({
       'action.annotate': 'Annotate',
       'action.preview': 'Open preview',
       'action.mdPreview': 'Preview',
-      'review.submit': 'Submit',
-      'review.submitHint': "Add this file's annotations to the composer draft without sending",
-      'review.clear': 'Clear',
-      'review.clearHint': 'Clear every annotation in this file',
-      'review.confirmClear': 'Clear every annotation in this file? This cannot be undone.',
       'review.stale': 'The source changed; this annotation cannot be located',
-      'review.staged': 'Added to the composer draft; all annotations cleared',
-      'review.clearAll': 'Clear all',
-      'review.clearAllHint': 'Clear annotations in every file of this session',
-      'review.confirmClearAll': 'Clear annotations in every file of this session? This cannot be undone.',
-      'review.clearedAll': 'All annotations cleared',
       'review.label': 'Annotation navigator',
       'review.staleBadge': 'Source changed',
       'review.prev': 'Previous annotation',
       'review.next': 'Next annotation',
-      'review.noComposer': 'No composer is available for the active session',
+      'dock.title': 'File annotations',
+      'dock.label': 'File annotations',
+      'dock.count': '{n} annotations',
+      'dock.openHint': 'Jump to this annotation in {file}',
+      'dock.removeHint': 'Remove this annotation for {file}',
+      'dock.removed': 'Removed the annotation for {file}',
+      'dock.undo': 'Undo',
+      'dock.undoHint': 'Restore the annotations just removed',
+      'dock.restored': 'Annotations restored',
+      'dock.clearAll': 'Clear all',
+      'dock.confirmClearAll': 'Clear all {n} annotations?',
+      'dock.confirm': 'Clear all',
+      'dock.cancel': 'Cancel',
+      'dock.cleared': 'All annotations cleared',
+      'dock.send': 'Send to agent',
+      'dock.sendHint': 'Send the annotations with the next message; the draft is not filled with them',
+      'dock.sending': 'Sending annotations…',
+      'dock.waiting': 'Annotations submitted; waiting for the agent…',
+      'dock.sent': 'Annotations sent to the agent',
+      'dock.deliveryUnknown': 'Could not confirm delivery; annotations kept',
+      'dock.checkStatus': 'Check status',
+      'dock.noComposer': 'No composer is available, so annotations cannot be sent right now',
+      'dock.sendPrompt': 'Please apply the file annotations above.',
+      'dock.tooLarge': 'The annotations are too large to send; remove some first',
+      'dock.error': 'Sending annotations failed: {error}',
+      'dock.staleHint': 'The source changed; the file opens without locating the original lines',
       'mode.label': 'Mode',
       'mode.annotate': 'Annotate',
       'mode.edit': 'Edit',
@@ -163,6 +201,7 @@ window.__ModuleLoader__.load({
       'status.truncated': 'Large file: first {n} pages loaded',
       'status.loading': 'Loading file…',
       'status.saving': 'Saving…',
+      'status.plain': 'Plain text mode',
       'status.saveOk': 'Saved to disk',
       'panel.empty': 'Select text and choose Annotate to describe the change you want.',
       'composer.suggestionPlaceholder': 'Optional: write the exact replacement; the agent applies it first.',
@@ -224,7 +263,8 @@ window.__ModuleLoader__.load({
       treeRendered: false,
       treeWatchCount: 0,
       treeLastError: null,
-      composerBridgeCount: 0,
+      dockRegistered: false,
+      dockError: null,
       autoScheduled: 0,
       autoOpened: 0,
       autoSkipped: [],
@@ -433,20 +473,35 @@ window.__ModuleLoader__.load({
           }),
         'file-annotate: tree title',
       )
+      // Full-width management surface directly above the Composer. The list
+      // slot owns ordering: the Todo dock is 0 and the Queue dock is 20.
       ctx.effect(
         () =>
-          ctx.slots.inject('conversation.composer.dock', () => {
-            const dispose = ctx.slots.register(
-              {
-                name: 'conversation.composer.dock',
-                id: 'file-annotate-bridge',
-                order: 100,
-              },
-              ComposerBridge,
-            )
-            return dispose
+          ctx.slots.inject('conversation.input.dock', () => {
+            let dispose = null
+            try {
+              dispose = ctx.slots.register(
+                {
+                  name: 'conversation.input.dock',
+                  id: DOCK_ID,
+                  order: DOCK_ORDER,
+                  locale: NS,
+                },
+                AnnotationsDock,
+              )
+              diagnostics.dockRegistered = true
+              diagnostics.dockError = null
+            } catch (error) {
+              diagnostics.dockRegistered = false
+              diagnostics.dockError = String(error?.message ?? error)
+            }
+            if (typeof dispose !== 'function') return () => {}
+            return () => {
+              diagnostics.dockRegistered = false
+              dispose()
+            }
           }),
-        'file-annotate: composer bridge',
+        'file-annotate: annotations dock',
       )
       ctx.effect(
         () =>
@@ -804,78 +859,6 @@ window.__ModuleLoader__.load({
       return !TREE_NON_TEXT_EXTENSIONS.has(ext)
     }
 
-    const composerBridges = new Map()
-    const composerBridgeListeners = new Set()
-
-    function notifyComposerBridges() {
-      diagnostics.composerBridgeCount = composerBridges.size
-      for (const listener of composerBridgeListeners) {
-        try {
-          listener()
-        } catch {
-          // A listener re-render must not break the bridge table.
-        }
-      }
-    }
-
-    function setComposerBridge(sessionId, bridge) {
-      composerBridges.set(sessionId, bridge)
-      notifyComposerBridges()
-    }
-
-    function removeComposerBridge(sessionId, bridge) {
-      if (composerBridges.get(sessionId) !== bridge) return
-      composerBridges.delete(sessionId)
-      notifyComposerBridges()
-    }
-
-    function useComposerBridge(sessionId) {
-      const [, force] = React.useState(0)
-      React.useEffect(() => {
-        const listener = () => force((value) => value + 1)
-        composerBridgeListeners.add(listener)
-        return () => composerBridgeListeners.delete(listener)
-      }, [])
-      return sessionId === undefined || sessionId === null
-        ? undefined
-        : composerBridges.get(sessionId)
-    }
-
-    /** Hidden session-scoped bridge that lends the composer draft actions to the root workbench. */
-    function ComposerBridge({ sessionId, useInput, inputActions }) {
-      const draftRef = React.useRef('')
-      draftRef.current = useInput((state) =>
-        state === undefined || state === null || typeof state.draft !== 'string' ? '' : state.draft,
-      )
-      const bridge = React.useMemo(() => {
-        const append = (text) => {
-          if (
-            typeof text !== 'string' ||
-            text === '' ||
-            inputActions === undefined ||
-            inputActions === null
-          ) {
-            return false
-          }
-          try {
-            const base =
-              draftRef.current.trim() === '' ? '' : draftRef.current.replace(/\s+$/, '')
-            inputActions.setDraft(base === '' ? text : `${base}\n\n${text}`)
-            return true
-          } catch {
-            return false
-          }
-        }
-        return { append }
-      }, [inputActions])
-      React.useEffect(() => {
-        if (typeof sessionId !== 'string' || sessionId === '') return undefined
-        setComposerBridge(sessionId, bridge)
-        return () => removeComposerBridge(sessionId, bridge)
-      }, [sessionId, bridge])
-      return null
-    }
-
     function readSessionAnnotations(sessionId) {
       if (typeof sessionId !== 'string' || sessionId === '') return []
       const items = []
@@ -933,12 +916,42 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function notifyAnnotationsCleared() {
+    function notifyAnnotationsCleared(addresses) {
       try {
-        window.dispatchEvent(new Event('file-annotate:annotations-cleared'))
+        window.dispatchEvent(
+          new CustomEvent('file-annotate:annotations-cleared', {
+            detail:
+              Array.isArray(addresses) && addresses.length > 0
+                ? { addresses: [...addresses] }
+                : undefined,
+          }),
+        )
       } catch {
         // Other open editors refresh on their next poll.
       }
+    }
+
+    function notifyAnnotationsRestored() {
+      try {
+        window.dispatchEvent(new Event('file-annotate:annotations-restored'))
+      } catch {
+        // The dock keeps its own view from storage; editors catch up on their next poll.
+      }
+    }
+
+    /** Drop tombstones so restored annotations become visible again everywhere. */
+    function unmarkAnnotationsDeleted(sessionId, entries) {
+      if (typeof sessionId !== 'string' || sessionId === '' || !Array.isArray(entries)) return
+      const deleted = loadDeletedAnnotations(sessionId)
+      let changed = false
+      for (const entry of entries) {
+        if (entry === undefined || entry === null) continue
+        if (typeof entry.address !== 'string' || typeof entry.id !== 'string') continue
+        if (deleted.delete(`${entry.address}::${entry.id}`)) changed = true
+      }
+      if (!changed) return
+      saveDeletedAnnotations(sessionId, deleted)
+      notifyAnnotationsChanged()
     }
 
     function useSessionAnnotations(sessionId) {
@@ -956,14 +969,682 @@ window.__ModuleLoader__.load({
         }
         refresh()
         const timer = setInterval(refresh, 1500)
-        window.addEventListener('storage', refresh)
+        const events = [
+          'storage',
+          'file-annotate:annotations-changed',
+          'file-annotate:annotations-cleared',
+          'file-annotate:annotations-restored',
+        ]
+        for (const name of events) window.addEventListener(name, refresh)
         return () => {
           alive = false
           clearInterval(timer)
-          window.removeEventListener('storage', refresh)
+          for (const name of events) window.removeEventListener(name, refresh)
         }
       }, [sessionId])
       return items
+    }
+
+    // ------------------------------------------------------------------
+    // Annotation dock above the Composer
+    // ------------------------------------------------------------------
+
+    function sleep(ms) {
+      return new Promise((resolve) => {
+        window.setTimeout(resolve, ms)
+      })
+    }
+
+    function nextPaint() {
+      return new Promise((resolve) => {
+        try {
+          if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(() => resolve())
+            return
+          }
+        } catch {
+          // Fall through to a timer.
+        }
+        window.setTimeout(resolve, 16)
+      })
+    }
+
+    /** Accept the status shapes a Host acknowledges with; unknown shapes stay pending. */
+    function statusConsumed(value) {
+      if (value === null || typeof value !== 'object') return false
+      const state =
+        typeof value.state === 'string'
+          ? value.state
+          : typeof value.status === 'string'
+            ? value.status
+            : ''
+      // "unknown" means expired/replaced/never seen and must never be read as
+      // delivered merely because the payload also carries pending:false.
+      if (state === 'unknown') return false
+      if (state === 'consumed' || state === 'done' || state === 'delivered') return true
+      if (value.consumed === true) return true
+      // Legacy boolean-only shape: no state field at all.
+      if (state === '' && value.pending === false) return true
+      return false
+    }
+
+    function buildReviewMessage(items, t) {
+      const groups = new Map()
+      for (const item of items) {
+        if (!groups.has(item.address)) {
+          groups.set(item.address, { path: item.path || item.address, annotations: [] })
+        }
+        groups.get(item.address).annotations.push(item.annotation)
+      }
+      return [...groups.values()]
+        .map((group) => buildMessage(group.path, group.annotations, t))
+        .join('\n\n')
+    }
+
+    function annotationEntries(items) {
+      return items.map((item) => ({ address: item.address, id: item.annotation.id }))
+    }
+
+    function dockErrorText(error, t) {
+      const raw = String((error && (error.message || error)) || 'unknown')
+      const message = raw.length > 160 ? `${raw.slice(0, 160)}…` : raw
+      return t('dock.error', { error: message })
+    }
+
+    async function waitForDraft(ref, expected, budgetMs) {
+      const deadline = Date.now() + budgetMs
+      const wanted = expected.trim()
+      while (Date.now() < deadline) {
+        if (typeof ref.current === 'string' && ref.current.trim() === wanted) return true
+        await nextPaint()
+      }
+      return false
+    }
+
+    async function pollPendingStatus(sessionId, requestId, budgetMs) {
+      const deadline = Date.now() + budgetMs
+      let delay = 450
+      while (Date.now() < deadline) {
+        await sleep(Math.min(delay, Math.max(0, deadline - Date.now())))
+        delay = Math.min(1800, Math.round(delay * 1.35))
+        let response
+        try {
+          response = await fetch(
+            `${PENDING_STATUS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}&requestId=${encodeURIComponent(requestId)}`,
+            { headers: { accept: 'application/json' }, cache: 'no-store' },
+          )
+        } catch {
+          continue
+        }
+        if (response.status === 404) return 'unknown'
+        if (!response.ok) {
+          if (response.status === 400 || response.status === 403) return 'unknown'
+          continue
+        }
+        let value = null
+        try {
+          value = await response.json()
+        } catch {
+          value = null
+        }
+        if (value !== null && typeof value === 'object') {
+          // Check "unknown" before the consumed predicates: the Host reports an
+          // expired/replaced request as {state:"unknown", pending:false, consumed:false}.
+          if (value.state === 'unknown') return 'unknown'
+          if (value.ok === false) return 'unknown'
+        }
+        if (statusConsumed(value)) return 'consumed'
+      }
+      return 'pending'
+    }
+
+    async function cancelPending(sessionId, requestId) {
+      try {
+        await fetch(
+          `${PENDING_ROUTE}?sessionId=${encodeURIComponent(sessionId)}&requestId=${encodeURIComponent(requestId)}`,
+          { method: 'DELETE', headers: { accept: 'application/json' } },
+        )
+      } catch {
+        // A Host without cancellation keeps the one-shot entry; it is consumed only once.
+      }
+    }
+
+    /** Keeps the live draft in a ref for the Dock without re-rendering on every keystroke. */
+    function DockDraftProbe({ useInput, onDraft }) {
+      const draft = useInput((state) =>
+        state === undefined || state === null || typeof state.draft !== 'string' ? '' : state.draft,
+      )
+      React.useEffect(() => {
+        onDraft(draft)
+      }, [draft, onDraft])
+      return null
+    }
+
+    function AnnotationsDock(props) {
+      const sessionId = props.sessionId
+      if (typeof sessionId !== 'string' || sessionId === '') return null
+      return h(AnnotationsDockBody, props)
+    }
+
+    function AnnotationsDockBody(props) {
+      const { sessionId, useInput, inputActions, t: translate } = props
+      const t = typeof translate === 'function' ? translate : (key) => key
+      const items = useSessionAnnotations(sessionId)
+      const [phase, setPhase] = React.useState('idle')
+      const [status, setStatus] = React.useState(null)
+      const [flash, setFlash] = React.useState(null)
+      const [confirmClear, setConfirmClear] = React.useState(false)
+      const [undoState, setUndoState] = React.useState(null)
+      const draftRef = React.useRef('')
+      const inflightRef = React.useRef(null)
+      const aliveRef = React.useRef(true)
+      const removeRefs = React.useRef(new Map())
+      const sendRef = React.useRef(null)
+      const confirmRef = React.useRef(null)
+      const undoRef = React.useRef(null)
+      const undoTimerRef = React.useRef(null)
+      const confirmTimerRef = React.useRef(null)
+      const flashTimerRef = React.useRef(null)
+
+      const onDraft = React.useCallback((value) => {
+        draftRef.current = typeof value === 'string' ? value : ''
+      }, [])
+
+      React.useEffect(() => {
+        aliveRef.current = true
+        return () => {
+          aliveRef.current = false
+          inflightRef.current = null
+          for (const ref of [undoTimerRef, confirmTimerRef, flashTimerRef]) {
+            if (ref.current !== null) {
+              window.clearTimeout(ref.current)
+              ref.current = null
+            }
+          }
+        }
+      }, [])
+
+      React.useEffect(() => {
+        if (!confirmClear || confirmRef.current === null) return
+        try {
+          confirmRef.current.focus()
+        } catch {
+          // Focus is an enhancement when the button is already replaced.
+        }
+      }, [confirmClear])
+
+      React.useEffect(() => {
+        if (items.length === 0 && confirmClear) setConfirmClear(false)
+      }, [items.length, confirmClear])
+
+      const showFlash = (text) => {
+        setFlash(text)
+        if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current)
+        flashTimerRef.current = window.setTimeout(() => {
+          flashTimerRef.current = null
+          if (aliveRef.current) setFlash(null)
+        }, 4000)
+      }
+
+      const scheduleUndoExpiry = () => {
+        if (undoTimerRef.current !== null) window.clearTimeout(undoTimerRef.current)
+        undoTimerRef.current = window.setTimeout(() => {
+          undoTimerRef.current = null
+          if (aliveRef.current) setUndoState(null)
+        }, 8000)
+      }
+
+      const clearStatus = () => setStatus(null)
+
+      const composerAvailable =
+        inputActions !== undefined &&
+        inputActions !== null &&
+        typeof inputActions.setDraft === 'function' &&
+        typeof inputActions.submit === 'function' &&
+        typeof useInput === 'function'
+
+      const completeSend = (token) => {
+        inflightRef.current = null
+        setPhase('idle')
+        setStatus(null)
+        markAnnotationsDeleted(sessionId, token.entries)
+        const addresses = new Set(token.entries.map((entry) => entry.address))
+        for (const address of addresses) {
+          try {
+            if (loadAnnotations(address).length === 0) {
+              window.localStorage.removeItem(STORAGE_PREFIX + address)
+            }
+          } catch {
+            // Tombstones still hide the sent annotations when storage is unavailable.
+          }
+        }
+        notifyAnnotationsCleared([...addresses])
+        showFlash(t('dock.sent'))
+        if (sendRef.current !== null) {
+          try {
+            sendRef.current.focus()
+          } catch {
+            // The dock may be unmounting right after the last card leaves.
+          }
+        }
+      }
+
+      const confirmConsumed = async (token, quiet) => {
+        const outcome = await pollPendingStatus(sessionId, token.requestId, quiet ? 6000 : 12000)
+        if (!aliveRef.current || inflightRef.current !== token) return
+        if (outcome === 'consumed') {
+          completeSend(token)
+          return
+        }
+        if (outcome === 'unknown') {
+          inflightRef.current = null
+          setPhase('idle')
+          setStatus({ kind: 'error', text: t('dock.deliveryUnknown') })
+          return
+        }
+        setPhase('waiting')
+        setStatus({ kind: 'info', text: t('dock.waiting') })
+      }
+
+      const handleSend = async () => {
+        if (phase !== 'idle' || items.length === 0) return
+        if (!composerAvailable) {
+          setStatus({ kind: 'error', text: t('dock.noComposer') })
+          return
+        }
+        const message = buildReviewMessage(items, t)
+        if (message.length > MAX_PENDING_CHARS) {
+          setStatus({ kind: 'error', text: t('dock.tooLarge') })
+          return
+        }
+        const requestId = `fa${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+        const prompt = draftRef.current.trim() === '' ? t('dock.sendPrompt') : null
+        const token = { requestId, entries: annotationEntries(items), message }
+        setConfirmClear(false)
+        setUndoState(null)
+        setStatus({ kind: 'info', text: t('dock.sending') })
+        setPhase('sending')
+        try {
+          const response = await fetch(PENDING_ROUTE, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ sessionId, requestId, message }),
+          })
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          let receipt = null
+          try {
+            receipt = await response.json()
+          } catch {
+            receipt = null
+          }
+          if (receipt !== null && typeof receipt === 'object' && receipt.ok === false) {
+            throw new Error(typeof receipt.error === 'string' ? receipt.error : 'rejected')
+          }
+          if (!aliveRef.current) return
+          inflightRef.current = token
+          setPhase('waiting')
+          if (prompt !== null) {
+            inputActions.setDraft(prompt)
+            await waitForDraft(draftRef, prompt, 320)
+          }
+          if (!aliveRef.current) return
+          inputActions.submit()
+          void confirmConsumed(token, false)
+        } catch (error) {
+          if (!aliveRef.current) return
+          // The POST may have reached the Host even when the response was lost.
+          // Always withdraw this request id; DELETE is idempotent and harmless
+          // when the Host never stored it.
+          void cancelPending(sessionId, requestId)
+          inflightRef.current = null
+          setPhase('idle')
+          setStatus({ kind: 'error', text: dockErrorText(error, t) })
+        }
+      }
+
+      const checkAgain = () => {
+        const token = inflightRef.current
+        if (token === null) return
+        setStatus({ kind: 'info', text: t('dock.waiting') })
+        void confirmConsumed(token, true)
+      }
+
+      const removeOne = (item, index) => {
+        if (phase !== 'idle') return
+        const entry = { address: item.address, id: item.annotation.id }
+        let raw = null
+        try {
+          raw = window.localStorage.getItem(STORAGE_PREFIX + item.address)
+        } catch {
+          raw = null
+        }
+        markAnnotationsDeleted(sessionId, [entry])
+        clearStatus()
+        setConfirmClear(false)
+        setUndoState({
+          kind: 'remove',
+          entries: [entry],
+          raw: [{ address: item.address, raw }],
+          message: t('dock.removed', { file: basename(item.path) }),
+        })
+        scheduleUndoExpiry()
+        const neighbour = items[index + 1] !== undefined ? items[index + 1] : items[index - 1]
+        const focusKey = neighbour === undefined ? null : neighbour.key
+        window.setTimeout(() => {
+          if (!aliveRef.current) return
+          const fallback = items.length <= 1 ? undoRef.current : sendRef.current
+          const node = focusKey === null ? fallback : removeRefs.current.get(focusKey)
+          if (node !== undefined && node !== null && typeof node.focus === 'function') {
+            try {
+              node.focus()
+            } catch {
+              // The next card may have unmounted through a concurrent sync.
+            }
+          }
+        }, 0)
+      }
+
+      const undoLast = () => {
+        const state = undoState
+        if (state === null) return
+        if (Array.isArray(state.raw)) {
+          for (const entry of state.raw) {
+            try {
+              if (entry.raw === null) window.localStorage.removeItem(STORAGE_PREFIX + entry.address)
+              else window.localStorage.setItem(STORAGE_PREFIX + entry.address, entry.raw)
+            } catch {
+              // Restore what storage allows; tombstones are removed regardless.
+            }
+          }
+        }
+        unmarkAnnotationsDeleted(sessionId, state.entries)
+        setUndoState(null)
+        clearStatus()
+        notifyAnnotationsRestored()
+        showFlash(t('dock.restored'))
+      }
+
+      const clearAll = () => {
+        if (phase !== 'idle' || items.length === 0) return
+        const entries = annotationEntries(items)
+        const addresses = new Set(items.map((item) => item.address))
+        const raw = []
+        for (const address of addresses) {
+          let value = null
+          try {
+            value = window.localStorage.getItem(STORAGE_PREFIX + address)
+          } catch {
+            value = null
+          }
+          raw.push({ address, raw: value })
+        }
+        markAnnotationsDeleted(sessionId, entries)
+        for (const address of addresses) {
+          try {
+            window.localStorage.removeItem(STORAGE_PREFIX + address)
+          } catch {
+            // Tombstones still hide the annotations when storage is unavailable.
+          }
+        }
+        notifyAnnotationsCleared([...addresses])
+        setConfirmClear(false)
+        clearStatus()
+        setUndoState({ kind: 'clear', entries, raw, message: t('dock.cleared') })
+        scheduleUndoExpiry()
+        window.setTimeout(() => {
+          if (!aliveRef.current) return
+          const node = undoRef.current !== null ? undoRef.current : sendRef.current
+          if (node === null) return
+          try {
+            node.focus()
+          } catch {
+            // Send may be disabled but still receives focus.
+          }
+        }, 0)
+      }
+
+      const beginConfirmClear = () => {
+        if (phase !== 'idle') return
+        setConfirmClear(true)
+        if (confirmTimerRef.current !== null) window.clearTimeout(confirmTimerRef.current)
+        confirmTimerRef.current = window.setTimeout(() => {
+          confirmTimerRef.current = null
+          if (aliveRef.current) setConfirmClear(false)
+        }, 5000)
+      }
+
+      const cancelConfirmClear = () => {
+        setConfirmClear(false)
+        if (confirmTimerRef.current !== null) {
+          window.clearTimeout(confirmTimerRef.current)
+          confirmTimerRef.current = null
+        }
+      }
+
+      const navigateTo = (item) => {
+        const stale = item.annotation.stale === true
+        const params = stale
+          ? undefined
+          : {
+              line: item.annotation.startLine,
+              from: item.annotation.start,
+              to: item.annotation.end,
+            }
+        const detail = {
+          sessionId,
+          address: item.address,
+          path: item.path,
+          line: item.annotation.startLine,
+          from: item.annotation.start,
+          to: item.annotation.end,
+          stale,
+          handled: false,
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('file-annotate:navigate', { detail }))
+        } catch {
+          // Fall through to the sidebar controller.
+        }
+        if (detail.handled === true) return
+        try {
+          runtime.sidebarRight.openResource(item.address, { kind: KIND, params })
+        } catch (error) {
+          setStatus({ kind: 'error', text: String((error && error.message) || error) })
+        }
+      }
+
+      const hasItems = items.length > 0
+      const visible =
+        hasItems ||
+        flash !== null ||
+        undoState !== null ||
+        phase === 'sending' ||
+        phase === 'waiting' ||
+        (status !== null && status.kind === 'error')
+      if (!visible) return null
+
+      const statusKind = status === null ? null : status.kind
+      const statusText = status === null ? null : status.text
+      const liveText = statusText !== null ? statusText : flash
+      const showCheckAgain = phase === 'waiting' && inflightRef.current !== null
+      const showNoComposer = !composerAvailable && hasItems && statusText === null
+
+      const cards = items.map((item, index) => {
+        const file = basename(item.path)
+        const lines = lineRange(item.annotation.startLine, item.annotation.endLine, t)
+        const note = truncate(item.annotation.note, 120)
+        const stale = item.annotation.stale === true
+        return h(
+          'li',
+          { key: item.key, className: 'dsh-fa-dock-item' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-fa-dock-card',
+              title: `${file} · ${lines}\n${note}${stale ? `\n${t('review.staleBadge')}` : ''}`,
+              'aria-label': `${t('dock.openHint', { file })} — ${lines}: ${note}`,
+              onClick: () => navigateTo(item),
+            },
+            h('span', { className: 'dsh-fa-dock-file' }, file),
+            h('span', { className: 'dsh-fa-dock-lines' }, lines),
+            stale
+              ? h('span', { className: 'dsh-fa-dock-stale', title: t('review.stale') }, t('review.staleBadge'))
+              : null,
+            h('span', { className: 'dsh-fa-dock-note' }, note),
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsh-fa-dock-remove',
+              title: t('dock.removeHint', { file }),
+              'aria-label': t('dock.removeHint', { file }),
+              disabled: phase !== 'idle',
+              ref: (node) => {
+                if (node === null) removeRefs.current.delete(item.key)
+                else removeRefs.current.set(item.key, node)
+              },
+              onClick: () => removeOne(item, index),
+            },
+            '×',
+          ),
+        )
+      })
+
+      const head = h(
+        'div',
+        { className: 'dsh-fa-dock-head' },
+        h('span', { className: 'dsh-fa-dock-icon', 'aria-hidden': true }, '✎'),
+        h('span', { className: 'dsh-fa-dock-title' }, t('dock.title')),
+        h('span', { className: 'dsh-fa-dock-count' }, t('dock.count', { n: items.length })),
+        h('span', { className: 'dsh-fa-dock-spacer' }),
+        confirmClear
+          ? h(
+              React.Fragment,
+              null,
+              h('span', { className: 'dsh-fa-dock-confirm-label' }, t('dock.confirmClearAll', { n: items.length })),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dsh-fa-dock-confirm danger',
+                  ref: confirmRef,
+                  onClick: clearAll,
+                },
+                t('dock.confirm'),
+              ),
+              h(
+                'button',
+                { type: 'button', className: 'dsh-fa-dock-button', onClick: cancelConfirmClear },
+                t('dock.cancel'),
+              ),
+            )
+          : h(
+              'button',
+              {
+                type: 'button',
+                className: 'dsh-fa-dock-button danger',
+                disabled: !hasItems || phase !== 'idle',
+                onClick: beginConfirmClear,
+              },
+              t('dock.clearAll'),
+            ),
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'dsh-fa-dock-send',
+            ref: sendRef,
+            disabled: !hasItems || phase !== 'idle' || !composerAvailable,
+            title: composerAvailable ? t('dock.sendHint') : t('dock.noComposer'),
+            onClick: () => {
+              void handleSend()
+            },
+          },
+          phase === 'sending'
+            ? t('dock.sending')
+            : phase === 'waiting'
+              ? t('dock.waiting')
+              : t('dock.send'),
+        ),
+      )
+
+      const foot = h(
+        'div',
+        { className: 'dsh-fa-dock-foot' },
+        h(
+          'div',
+          {
+            className:
+              statusKind === 'error'
+                ? 'dsh-fa-dock-status error'
+                : statusKind === 'ok'
+                  ? 'dsh-fa-dock-status ok'
+                  : 'dsh-fa-dock-status',
+            role: statusKind === 'error' ? 'alert' : 'status',
+            'aria-live': statusKind === 'error' ? 'assertive' : 'polite',
+          },
+          liveText !== null && liveText !== undefined
+            ? liveText
+            : undoState !== null
+              ? undoState.message
+              : showNoComposer
+                ? t('dock.noComposer')
+                : '',
+        ),
+        undoState !== null
+          ? h(
+              'button',
+              {
+                type: 'button',
+                className: 'dsh-fa-dock-undo',
+                ref: undoRef,
+                title: t('dock.undoHint'),
+                onClick: undoLast,
+              },
+              t('dock.undo'),
+            )
+          : null,
+        showCheckAgain
+          ? h(
+              'button',
+              {
+                type: 'button',
+                className: 'dsh-fa-dock-undo',
+                onClick: checkAgain,
+              },
+              t('dock.checkStatus'),
+            )
+          : null,
+      )
+
+      const footVisible =
+        (liveText !== null && liveText !== '') ||
+        undoState !== null ||
+        showNoComposer ||
+        showCheckAgain
+
+      return h(
+        'section',
+        {
+          className: 'dsh-fa-dock',
+          role: 'region',
+          'aria-label': t('dock.label'),
+          'data-file-annotate-dock': '',
+          onKeyDown: (event) => {
+            if (event.key === 'Escape' && confirmClear) {
+              event.preventDefault()
+              event.stopPropagation()
+              cancelConfirmClear()
+            }
+          },
+        },
+        typeof useInput === 'function' ? h(DockDraftProbe, { useInput, onDraft }) : null,
+        head,
+        hasItems ? h('ul', { className: 'dsh-fa-dock-list', role: 'list' }, ...cards) : null,
+        footVisible ? foot : null,
+      )
     }
 
     function treeDefinition(t) {
@@ -1870,7 +2551,7 @@ window.__ModuleLoader__.load({
     }
 
     function EditorBody(props) {
-      const { useTabInfo, useInput, inputActions, sessionId, useSessions, t } = props
+      const { useTabInfo, sessionId, useSessions, t } = props
       const info = useTabInfo()
       const tab = info === undefined || info === null ? undefined : info.tab
       const address =
@@ -1918,10 +2599,6 @@ window.__ModuleLoader__.load({
         const cursor = reviewCursorBySession.get(sessionId)
         return typeof cursor === 'number' ? cursor : 0
       })
-      const bridge = useComposerBridge(sessionId)
-      const composerDraft = useInput((state) =>
-        state === undefined || state === null || typeof state.draft !== 'string' ? '' : state.draft,
-      )
       const sessionAnnotations = useSessionAnnotations(sessionId)
 
       const taRef = React.useRef(null)
@@ -1941,8 +2618,10 @@ window.__ModuleLoader__.load({
       const noteCompositionEndAtRef = React.useRef(0)
       const dragFromEditorRef = React.useRef(false)
       const scheduleRef = React.useRef(null)
+      const draftLiveRef = React.useRef('')
       composerRef.current = composer
       modeRef.current = mode
+      draftLiveRef.current = draft
 
       const language = React.useMemo(() => languageOf(parsedPath), [parsedPath])
       const rootClass = 'dsh-fa-root'
@@ -2030,10 +2709,27 @@ window.__ModuleLoader__.load({
       }, [address, sessionId, globalAnnotations])
 
       React.useEffect(() => {
-        const onCleared = () => setAnnotations([])
+        const onCleared = (event) => {
+          const detail = event === undefined || event === null ? undefined : event.detail
+          const addresses =
+            detail !== undefined && detail !== null && Array.isArray(detail.addresses)
+              ? detail.addresses
+              : null
+          if (addresses !== null && !addresses.includes(address)) return
+          // Reload instead of blindly emptying: annotations added after the
+          // cleared ones were captured must survive the same-session cleanup.
+          setAnnotations(loadAnnotations(address))
+        }
+        const onRestored = () => {
+          setAnnotations(loadAnnotations(address))
+        }
         window.addEventListener('file-annotate:annotations-cleared', onCleared)
-        return () => window.removeEventListener('file-annotate:annotations-cleared', onCleared)
-      }, [])
+        window.addEventListener('file-annotate:annotations-restored', onRestored)
+        return () => {
+          window.removeEventListener('file-annotate:annotations-cleared', onCleared)
+          window.removeEventListener('file-annotate:annotations-restored', onRestored)
+        }
+      }, [address])
 
       React.useEffect(() => {
         const onCursor = (event) => {
@@ -2396,87 +3092,79 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const appendComposer = (text) => {
-        if (
-          inputActions !== undefined &&
-          inputActions !== null &&
-          typeof inputActions.setDraft === 'function'
-        ) {
+      /** Select a range described by the Dock: character offsets win over a line number. */
+      const focusRange = (target) => {
+        if (target === undefined || target === null) return
+        if (mdPreview) setMdPreview(false)
+        const ta = taRef.current
+        if (ta === null) return
+        const text = draftLiveRef.current
+        const clamp = (value) => Math.max(0, Math.min(text.length, Math.floor(value)))
+        const line = Number.isFinite(target.line) ? target.line : undefined
+        let start = 0
+        let end = 0
+        if (Number.isFinite(target.from) && Number.isFinite(target.to)) {
+          start = clamp(target.from)
+          end = clamp(target.to)
+        } else if (line !== undefined) {
+          start = offsetAtLine(text, line)
+          const newline = text.indexOf('\n', start)
+          end = newline < 0 ? text.length : newline
+        }
+        if (end < start) end = start
+        suppressAutoRef.current = true
+        try {
+          ta.focus()
+          ta.setSelectionRange(start, end)
+          ta.scrollTop = Math.max(0, ((line === undefined ? 1 : line) - 3) * 19.2)
+        } catch {
+          // The textarea may have been replaced while switching files.
+        }
+        setSelection({ start, end })
+        window.setTimeout(() => {
+          suppressAutoRef.current = false
+        }, 300)
+      }
+
+      // The Composer Dock is outside the sidebar. It navigates through this
+      // event so a workspace editor selects the file in place; when no editor
+      // claims the event, the Dock falls back to the sidebar controller.
+      const currentTabId = tab === undefined || tab === null ? undefined : tab.id
+      React.useEffect(() => {
+        const onNavigate = (event) => {
+          const detail = event === undefined || event === null ? undefined : event.detail
+          if (detail === undefined || detail === null || detail.sessionId !== sessionId) return
+          if (detail.handled === true) return
+          const target = detail.address
+          if (typeof target !== 'string' || target === '') return
+          detail.handled = true
+          if (target === address) {
+            if (detail.stale === true) {
+              setMdPreview(false)
+              setStatus({ kind: 'info', text: t('dock.staleHint') })
+              return
+            }
+            focusRange({ line: detail.line, from: detail.from, to: detail.to })
+            return
+          }
+          const params =
+            detail.stale === true
+              ? undefined
+              : { line: detail.line, from: detail.from, to: detail.to }
+          if (typeof props.onOpenFile === 'function') {
+            props.onOpenFile(target, params)
+            return
+          }
           try {
-            const base = composerDraft.trim() === '' ? '' : composerDraft.replace(/\s+$/, '')
-            inputActions.setDraft(base === '' ? text : `${base}\n\n${text}`)
-            return true
-          } catch {
-            // Fall through to the session bridge when the composer is being replaced.
+            runtime.sidebarRight.openResource(target, { kind: KIND, replaceTab: currentTabId, params })
+          } catch (error) {
+            detail.handled = false
+            setStatus({ kind: 'error', text: String((error && error.message) || error) })
           }
         }
-        return bridge === undefined ? false : bridge.append(text)
-      }
-
-      const submitReview = () => {
-        if (globalAnnotations.length === 0) return
-        const groups = new Map()
-        for (const item of globalAnnotations) {
-          const key = item.address
-          if (!groups.has(key)) {
-            groups.set(key, { path: item.path || item.address, annotations: [] })
-          }
-          groups.get(key).annotations.push(item.annotation)
-        }
-        const message = [...groups.values()]
-          .map((group) => buildMessage(group.path, group.annotations, t))
-          .join('\n\n')
-        if (!appendComposer(message)) {
-          setStatus({ kind: 'error', text: t('review.noComposer') })
-          return
-        }
-        markAnnotationsDeleted(
-          sessionId,
-          globalAnnotations.map((item) => ({
-            address: item.address,
-            id: item.annotation.id,
-          })),
-        )
-        setAnnotations([])
-        setGlobalIndex(0)
-        notifyAnnotationsCleared()
-        setStatus({ kind: 'info', text: t('review.staged') })
-      }
-
-      const clearReview = () => {
-        if (typeof window.confirm === 'function' && !window.confirm(t('review.confirmClear'))) return
-        markAnnotationsDeleted(
-          sessionId,
-          annotations.map((annotation) => ({ address, id: annotation.id })),
-        )
-        setAnnotations([])
-        setStatus(null)
-      }
-
-      const clearAllReview = () => {
-        if (typeof window.confirm === 'function' && !window.confirm(t('review.confirmClearAll'))) return
-        const items = readSessionAnnotations(sessionId)
-        const addresses = new Set(items.map((item) => item.address))
-        markAnnotationsDeleted(sessionId, [
-          ...items.map((item) => ({
-            address: item.address,
-            id: item.annotation.id,
-          })),
-          ...annotations.map((annotation) => ({ address, id: annotation.id })),
-        ])
-        if (annotations.length > 0) addresses.add(address)
-        for (const target of addresses) {
-          try {
-            window.localStorage.removeItem(STORAGE_PREFIX + target)
-          } catch {
-            // Tombstones still hide the annotations when storage is unavailable.
-          }
-        }
-        setAnnotations([])
-        setGlobalIndex(0)
-        notifyAnnotationsCleared()
-        setStatus({ kind: 'info', text: t('review.clearedAll') })
-      }
+        window.addEventListener('file-annotate:navigate', onNavigate)
+        return () => window.removeEventListener('file-annotate:navigate', onNavigate)
+      }, [sessionId, address, mdPreview, currentTabId, props.onOpenFile, t])
 
       const openPreview = () => {
         if (parsed === null) return
@@ -2747,38 +3435,6 @@ window.__ModuleLoader__.load({
                 'div',
                 { className: 'dsh-fa-review-row' },
                 h(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'dsh-fa-review-submit',
-                    title: t('review.submitHint'),
-                    disabled: annotations.length === 0,
-                    onClick: submitReview,
-                  },
-                  t('review.submit'),
-                ),
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'dsh-fa-review-text',
-                    title: t('review.clearHint'),
-                    disabled: annotations.length === 0,
-                    onClick: clearReview,
-                  },
-                  t('review.clear'),
-                ),
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'dsh-fa-review-text danger',
-                    title: t('review.clearAllHint'),
-                    onClick: clearAllReview,
-                  },
-                  t('review.clearAll'),
-                ),
-                h(
                   'span',
                   {
                     className: 'dsh-fa-review-count',
@@ -2972,15 +3628,46 @@ window.__ModuleLoader__.load({
 .dsh-fa-review-row { display:flex; align-items:center; gap:2px; }
 .dsh-fa-review-note.stale { color:var(--fa-warn); }
 .dsh-fa-review-note { max-width:360px; padding:2px 6px; color:var(--fa-muted); font-size:11px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.dsh-fa-review-submit { appearance:none; height:26px; padding:0 10px; border:0; border-radius:7px; background:var(--fa-ok); color:var(--dsw-alias-bg-base); font:inherit; font-size:11px; font-weight:600; cursor:pointer; }
-.dsh-fa-review-submit:hover { filter:brightness(1.06); }
-.dsh-fa-review-text { appearance:none; height:26px; padding:0 8px; border:0; border-radius:7px; background:transparent; color:var(--fa-muted); font:inherit; font-size:11px; cursor:pointer; }
-.dsh-fa-review-text:hover { background:var(--fa-surface); color:var(--fa-text); }
-.dsh-fa-review-text.danger { color:var(--fa-danger); }
-.dsh-fa-review-text.danger:hover { background:color-mix(in srgb, var(--fa-danger) 12%, transparent); color:var(--fa-danger); }
 .dsh-fa-review-count { min-width:76px; padding:0 4px; text-align:center; color:var(--fa-muted); font:11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .dsh-fa-review-nav { appearance:none; width:26px; height:26px; border:0; border-radius:7px; background:transparent; color:var(--fa-muted); font:13px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; cursor:pointer; }
 .dsh-fa-review-nav:hover { background:var(--fa-surface); color:var(--fa-text); }
+
+/* Annotation dock above the Composer. It mirrors the shared panel elevation
+   used by the Todo and Queue docks so the three surfaces read as one stack. */
+.dsh-fa-dock { box-sizing:border-box; width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset)); max-width:calc(var(--dsh-composer-card-max-width) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset)); flex:none; margin:0 auto; border-radius:var(--dsw-radius-lg, 10px); background:var(--dsw-specific-menu, var(--dsw-alias-bg-layer-1)); backdrop-filter:var(--dsw-menu-backdrop-filter, none); box-shadow:var(--dsw-elevation-panel, 0 0 0 .5px var(--dsw-alias-border-l1)); color:var(--dsw-alias-label-primary); font-size:12px; overflow:hidden; isolation:isolate; }
+.dsh-fa-dock-head { display:flex; align-items:center; gap:8px; min-height:34px; box-sizing:border-box; padding:4px 8px 4px 12px; border-bottom:1px solid var(--dsw-alias-border-l1); }
+.dsh-fa-dock-icon { flex:none; color:var(--dsw-alias-label-tertiary); font-size:12px; line-height:1; }
+.dsh-fa-dock-title { flex:none; font-size:12px; font-weight:600; color:var(--dsw-alias-label-primary); }
+.dsh-fa-dock-count { flex:none; color:var(--dsw-alias-label-tertiary); font-size:11px; white-space:nowrap; }
+.dsh-fa-dock-spacer { flex:1 1 auto; }
+.dsh-fa-dock-button, .dsh-fa-dock-send, .dsh-fa-dock-confirm { flex:none; appearance:none; box-sizing:border-box; height:24px; padding:0 8px; border:1px solid var(--dsw-alias-border-l1); border-radius:var(--dsw-radius-md, 6px); background:transparent; color:var(--dsw-alias-label-secondary); font:inherit; font-size:11px; line-height:1; white-space:nowrap; cursor:pointer; }
+.dsh-fa-dock-button:hover:not(:disabled) { background:var(--dsw-alias-interactive-bg-hover); color:var(--dsw-alias-label-primary); }
+.dsh-fa-dock-button.danger { color:var(--dsw-alias-state-error-primary); }
+.dsh-fa-dock-button.danger:hover:not(:disabled) { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent); }
+.dsh-fa-dock-confirm { border-color:var(--dsw-alias-state-error-primary); color:var(--dsw-alias-state-error-primary); font-weight:600; }
+.dsh-fa-dock-confirm:hover:not(:disabled) { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent); }
+.dsh-fa-dock-confirm-label { flex:none; color:var(--dsw-alias-label-secondary); font-size:11px; white-space:nowrap; }
+.dsh-fa-dock-send { border-color:var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary)); background:var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary)); color:var(--dsw-alias-bg-base, #fff); font-weight:600; }
+.dsh-fa-dock-send:hover:not(:disabled) { filter:brightness(1.06); }
+.dsh-fa-dock-send:disabled, .dsh-fa-dock-button:disabled, .dsh-fa-dock-confirm:disabled, .dsh-fa-dock-remove:disabled { opacity:.45; cursor:default; }
+.dsh-fa-dock-button:focus-visible, .dsh-fa-dock-send:focus-visible, .dsh-fa-dock-confirm:focus-visible, .dsh-fa-dock-card:focus-visible, .dsh-fa-dock-remove:focus-visible, .dsh-fa-dock-undo:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset:-2px; }
+.dsh-fa-dock-list { margin:0; padding:2px 0; list-style:none; max-height:180px; overflow-y:auto; }
+.dsh-fa-dock-item { display:flex; align-items:center; gap:4px; min-width:0; padding:1px 6px 1px 12px; }
+.dsh-fa-dock-item + .dsh-fa-dock-item { box-shadow:inset 0 1px 0 var(--dsw-alias-border-l1); }
+.dsh-fa-dock-card { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:8px; height:30px; appearance:none; padding:0 4px; border:0; border-radius:var(--dsw-radius-md, 6px); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.dsh-fa-dock-card:hover { background:var(--dsw-alias-interactive-bg-hover); }
+.dsh-fa-dock-file { flex:none; max-width:34%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600; color:var(--dsw-alias-label-primary); }
+.dsh-fa-dock-lines { flex:none; color:var(--dsw-alias-label-tertiary); font-size:11px; white-space:nowrap; }
+.dsh-fa-dock-stale { flex:none; padding:1px 5px; border-radius:999px; background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 16%, transparent); color:var(--dsw-alias-state-warn-primary); font-size:10px; line-height:1.4; white-space:nowrap; }
+.dsh-fa-dock-note { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dsw-alias-label-secondary); font-size:11px; }
+.dsh-fa-dock-remove { flex:none; appearance:none; width:22px; height:22px; border:0; border-radius:var(--dsw-radius-sm, 4px); background:transparent; color:var(--dsw-alias-label-tertiary); font-size:14px; line-height:1; cursor:pointer; }
+.dsh-fa-dock-remove:hover:not(:disabled) { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent); color:var(--dsw-alias-state-error-primary); }
+.dsh-fa-dock-foot { display:flex; align-items:center; gap:8px; min-height:22px; box-sizing:border-box; padding:2px 10px 4px 12px; border-top:1px solid var(--dsw-alias-border-l1); }
+.dsh-fa-dock-status { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dsw-alias-label-tertiary); font-size:11px; line-height:1.5; }
+.dsh-fa-dock-status.error { color:var(--dsw-alias-state-error-primary); white-space:normal; }
+.dsh-fa-dock-status.ok { color:var(--dsw-alias-state-success-primary); }
+.dsh-fa-dock-undo { flex:none; appearance:none; border:0; background:transparent; color:var(--dsw-alias-link, var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary))); font:inherit; font-size:11px; line-height:1.4; padding:2px 0; cursor:pointer; }
+.dsh-fa-dock-undo:hover { text-decoration:underline; }
 .dsh-fa-toolbar { display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:38px; min-height:38px; box-sizing:border-box; padding:0 8px; border-bottom:1px solid var(--fa-border); background:var(--fa-bg); overflow:hidden; }
 .dsh-fa-name { min-width:0; flex:0 1 auto; max-width:40%; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dsh-fa-meta { min-width:0; flex:0 1 auto; color:var(--fa-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
